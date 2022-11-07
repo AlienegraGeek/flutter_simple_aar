@@ -1,3 +1,4 @@
+boolean isAarLibrary = true
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -21,9 +22,21 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+//新增:當須要打包aar 時,修改項目爲library模式
+if (isAarLibrary) {
+    apply plugin: 'com.android.library'
+} else {
+    apply plugin: 'com.android.application'
+}
+
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
+//新增:引入fat-aar
+if (isAarLibrary) {
+    apply plugin: 'com.kezong.fat-aar'
+}
 
 android {
     compileSdkVersion flutter.compileSdkVersion
@@ -44,9 +57,12 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId "com.example.flutter_simple_aar"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-build-configuration.
+        //新增:須要打包aar時候,不能有applicationId
+        if (!isAarLibrary) {
+            applicationId "com.example.flutter_simple_aar"
+        }
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
@@ -68,4 +84,24 @@ flutter {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation fileTree(dir: 'libs', include: '*.jar')
+    //新增:將libflutter.so  和 flutter_embedding.jar ,同時和第三方插件打包到aar中
+    if (isAarLibrary) {
+// java dependency
+        embed project(path: ':lib-java', configuration: 'default')
+        // aar dependency
+        embed project(path: ':lib-aar', configuration: 'default')
+        // aar dependency
+        embed project(path: ':lib-aar2', configuration: 'default')
+        // local full aar dependency, just build in flavor1
+        flavor1Embed project(path: ':lib-aar-local', configuration: 'default')
+        // local full aar dependency, just build in debug
+        debugEmbed(name: 'lib-aar-local2', ext: 'aar')
+        // remote jar dependency
+        embed 'com.google.guava:guava:20.0'
+        // remote aar dependency
+        embed 'com.facebook.fresco:fresco:1.12.0'
+        // don't want to embed in
+        implementation('androidx.appcompat:appcompat:1.2.0')
+    }
 }
